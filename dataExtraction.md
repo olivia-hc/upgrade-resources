@@ -1,5 +1,12 @@
 # Data Extraction Table
 
-*Sample Data Extraction Table for Meta-Analysis (First Study Only)*
+[View Full Data Extraction Table Here](data_extraction.html)
 
-<iframe src="data_extraction.html" width="100%" height="600"></iframe>
+### Sample Extraction Table
+
+*Sample Data Extraction Table for Meta-Analysis (First Study Only)*
+![data 1](dataE1.png)
+![data 2](dataE2.png)
+![data 3](dataE3.png)
+![data 4](dataE4.png)
+
