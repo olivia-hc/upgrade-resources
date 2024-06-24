@@ -1,2 +1,2 @@
 ### Search Syntax Table
-(search-syntax.png)
+![Search Syntax](searchSyntax.png)
