@@ -1,3 +1,4 @@
+[Home](home.md) &nbsp; [Meta-Analysis](meta-analysis.md) &nbsp; [Behavioural](behavioural.md) &nbsp; [EEG](eeg.md) 
 # Validating EEG Trigger Timings
 *Python Code in MNE for Checking Timings of Pilot EEG Triggers*
 
