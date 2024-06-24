@@ -1,7 +1,5 @@
 # Data Extraction Table
 
-[View Full Data Extraction Table Here](data_extraction.html)
-
 ### Sample Extraction Table
 
 *Sample Data Extraction Table for Meta-Analysis (First Study Only)*
