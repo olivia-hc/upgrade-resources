@@ -2,9 +2,9 @@
 # Code for Multiple & Variable Triggers
 *Collated Python Code for Multiple and Variable Triggers in EEG Pilot Study*
 
-```python
 
-    ######PsychoPy code for EEG pilot collated into one python script for ease######
+```python 
+######PsychoPy code for EEG pilot collated into one python script for ease######
     
     ####BEGIN EXPERIMENT####
     
@@ -297,4 +297,5 @@
         this_main_resp = 'no response'
     
     thisExp.addData('Main Response', this_main_resp)
+
 ```
