@@ -2,4 +2,4 @@
 
 *Sample Data Extraction Table for Meta-Analysis (First Study Only)*
 
-### [Data Extraction Table](data_extraction.html)
+<iframe src="data_extraction.html" width="100%" height="600"></iframe>
