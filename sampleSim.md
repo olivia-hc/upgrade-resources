@@ -1,3 +1,4 @@
+[Home](home.md) &nbsp; [Meta-Analysis](meta-analysis.md) &nbsp; [Behavioural](behavioural.md) &nbsp; [EEG](eeg.md) 
 # Sample Size Calculations via Simulations 
 
 *R Code for Conducting Sample Size Simulations for a Logistic GLMM*
