@@ -3,6 +3,7 @@
 *Collated Python Code for Multiple and Variable Triggers in EEG Pilot Study*
 
 ```python
+
     ######PsychoPy code for EEG pilot collated into one python script for ease######
     
     ####BEGIN EXPERIMENT####
