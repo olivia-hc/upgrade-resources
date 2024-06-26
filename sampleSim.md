@@ -137,4 +137,4 @@ for (nitem in nitems) {
   poweroutput <- poweroutput %>% 
     rows_update(output)
 } 
-'''
+```
