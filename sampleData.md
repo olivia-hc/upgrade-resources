@@ -411,4 +411,4 @@ sampleTest <- glm(Permissibility~PDE_version*PBH_version*agent_version,family=bi
 summary(sampleTest)
 
 #####OPEN SAMPLE SIZE CALCULATION CODE#####
-'''
+```
