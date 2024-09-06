@@ -7,7 +7,7 @@
 
 ```R
 # Package names
-packages <- c("ggplot2",  "tidyverse", "lme4", "lmerTest", "simr", "MBESS","future","future.apply","binom", "see","optimx","minqa")
+packages <- c("ggplot2",  "tidyverse", "lme4", "lmerTest", "simr", "MBESS","future","future.apply","binom", "see","optimx", "afex")
 
 # Install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -26,10 +26,9 @@ library(future)
 library(future.apply)
 library(binom)
 library(see)
-library(optimx)
-library(minqa)
+library(afex)
 
-df <- sampleData
+df <- simulatedData
 df$PBH <- df$PBH_version
 df$PDE <- df$PDE_version
 df$agent <- df$agent_version
@@ -45,7 +44,6 @@ my.coding<-matrix(rep(1/2, 2), ncol=1)
 my.simple<-c-my.coding
 my.simple
 
-
 #personal force .5 Yes, -.5 No
 contrasts(df$PBH)<-my.simple
 contrasts(df$PBH)
@@ -54,17 +52,44 @@ contrasts(df$PBH)
 contrasts(df$PDE)<-my.simple
 contrasts(df$PDE)
 
+#intention .5 Yes, -.5 No
+contrasts(df$agent)<-my.simple
+contrasts(df$agent)
+
 #prediction DPv2.0 .5 Yes, -.5 No 
 contrasts(df$Permissibility)<-my.simple
 contrasts(df$Permissibility)
 
+
 #fit reduced model without by-subject random slope 
-fit<- glmer(Permissibility ~ PDE_version*PBH_version*agent_version +  (1+PDE_version+PBH_version+agent_version|sub_id) + (1+PDE_version+PBH_version+agent_version|stim_id),  data=sampleData, family = binomial(link = "logit"),control = glmerControl(optimizer = "nloptwrap", optCtrl = list(algorithm ="NLOPT_LN_NELDERMEAD")))
+fit<- glmer(Permissibility ~ PDE*PBH*agent +  (1+PDE+PBH+agent|sub_id) + (1+PDE+PBH+agent|stimID),  data=df, family = binomial(link = "logit"),control = glmerControl(optimizer = "bobyqa"))
 
 summary(fit)
 
+set_theme(base = theme_classic())
+plot_model(fit, terms = "PDE", type = "pred")
+plot_model(fit, type = "int")
+
+diff_optims <- allFit(fit, maxfun = 1e5) 
+diff_optims_OK <- diff_optims[sapply(diff_optims, is, "glmerMod")] 
+lapply(diff_optims_OK, function(x) x@optinfo$conv$lme4$messages)
+
+allFit <- allFit(fit)
+allFit <- all_fit(fit)
+
+#increase iterations
+control <- glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 2e5))
+
+# Fit the model with increased iterations
+fitInc2 <- glmer(Permissibility ~ PDE * PBH * agent +  
+               (1 + PDE + PBH + agent | sub_id) + 
+               (1 + PDE + PBH + agent | dilemmaID),  
+             data = df, 
+             family = binomial(link = "logit"), 
+             control = control)
+
 #test the effect of interest to make sure it's getting the model correctly, this should be same as standard model  
-doTest(fit, fixed("agent2", "z"))
+doTest(fitInc2, fixed("PBH2", "z"))
 
 #change effect size to OR = 1.5 (sensitivity to detect a "small" effect)
 
@@ -82,7 +107,7 @@ for (l in names(vcv)) {
 }
 
 #dataframe from model
-sdata <- cbind(fit@frame[,c("sub_id","stim_id","PBH","PDE","agent")])
+sdata <- cbind(fit@frame[c("sub_id","stimID","PBH","PDE","agent")])
 
 # basic options
 nsim <- 500
@@ -93,7 +118,7 @@ nitems <- c(25, 50, 75, 100)
 set.seed(123)
 
 #set glmer options
-glmerctrlist <- glmerControl(optimizer = "nloptwrap", optCtrl = list(algorithm =  "NLOPT_LN_NELDERMEAD"))
+glmerctrlist <- glmerControl(optimizer = "bobyqa")
 
 #create the model structure
 tglmer <- makeGlmer(attr(fit@frame,"formula"), 
@@ -109,7 +134,7 @@ for (nitem in nitems) {
   
   print(nitem)
   
-  tglx <- extend(tglmer,along="ID",n=nitem)
+  tglx <- extend(tglmer,along="sub_id",n=nitem)
   
   plan(multisession)
   
@@ -136,5 +161,6 @@ for (nitem in nitems) {
   output <- data.frame(nitem = nitem, mean = mean, lower=lower, upper = upper, warnings = sum(warnings), errors = sum(errors))
   poweroutput <- poweroutput %>% 
     rows_update(output)
-} 
+}
+ 
 ```
