@@ -27,194 +27,85 @@ library(magrittr)
 library(dplyr)
 library(psych)
 library(tidyr)
-library(pROC)
-
-options(digits = 10)
-
-#install pilot data (for purpose of reproducibility: swap this with directory of pilot data on OSF)
-df <- read.csv("~/Library/Documents/example folder/pilot_data.csv")
-
-#run GLMM on pilot data:
-MG<- glmer(Permissible ~ PDE*Prohibited.act +  (1+PDE*Prohibited.act|ID) + (1+PDE*Prohibited.act|Dilemma),  data=df, family = binomial(link = "logit"),control = glmerControl(optimizer = "bobyqa"))
-summary(MG)
-#Groups  Name                 Std.Dev. Corr                
-#ID      (Intercept)          1.14030                      
-#PDE2                 0.96576   0.413              
-#Prohibited.act2      1.66273   0.417 -0.080       
-#PDE2:Prohibited.act2 0.83688   0.275 -0.384 -0.078
-#Dilemma (Intercept)          1.03962                      
-#PDE2                 1.26028  -0.579              
-#Prohibited.act2      1.06800   0.587  0.199       
-#PDE2:Prohibited.act2 1.23052   0.569 -0.264  0.353
-
-#get rndm effects from GLMM
-randomeffects <- ranef(MG)
 
 #set seed
 set.seed(250923)
-#general 
+
+alldata <- read.csv("C:/Users/oh298/OneDrive - University of Exeter/PhD/Behavioural Study/sampleSize_simulations/alldata.csv")
+
+# Calculate mean of Permissible for each combination of PBH and PDE
+alldata %>%
+  +     group_by(Prohibited.act, PDE) %>%
+  +     summarise(mean_Permissible = mean(Permissible, na.rm = TRUE))
+
+MG<- glmer(Permissible ~ PDE*Prohibited.act +  (1+PDE*Prohibited.act|ID) + (1+PDE*Prohibited.act|Dilemma),  data=alldata, family = binomial(link = "logit"),control = glmerControl(optimizer = "bobyqa"))
+summary(MG)
+
+stim_n = 272
 sub_n = 200
-stim_n = 268
-dilemma_n = 33 
+##GENERATE RANDOM EFFECTS##
+#SUBJECT RANDOM EFFECTS#
+#### extract parameter estimates from pilot data ####
+subj_ranefsd <- round(attr(VarCorr(MG)$ID, "stddev"),4)
+subj_ranefcorrPilot_w.Int <- round(attr(VarCorr(MG)$ID, "corr"), 1)
 
-#####RANDOM EFFECTS#####
+### correlations
+## add in new variable & remove interaction for simplicity 
+#remove interaction 
+subj_ranefcorrPilot <- subj_ranefcorrPilot_w.Int[-4,-4]
 
+#add column for agent 
+agentCol <- c(0.4,0.1,0.1)
+subj_ranefcorr <- cbind(subj_ranefcorrPilot, agent = agentCol)
 
-####SUBJECTS####
+#add row for agent 
+agentRow <- c(0.4,0.1,0.1,1)
+subj_ranefcorr <- rbind(subj_ranefcorr, agent = agentRow)
 
-###intercepts###
-sub_i <- sample((randomeffects$ID$`(Intercept)`),sub_n)
-print(sub_i)
-
-###slopes###
-#slopes for random effects (PDE & PBH) from pilot data output:
-sub_PDE_slope <- sample((randomeffects$ID$PDE2),sub_n)
-print(sub_PDE_slope)
-sub_PBH_slope <- sample((randomeffects$ID$Prohibited.act2),sub_n)
-print(sub_PBH_slope)
-
-#random slopes for novel variable estimated w. pilot:
-sub_agent_slope <- sample(((sub_PBH_slope + sub_PDE_slope) / 2),sub_n)
-print(sub_agent_slope)
-
-
-##interaction slopes##
-#interaction slopes for random effects (PDE & PBH) from pilot data output:
-sub_PDExPBH_slope <- sample((randomeffects$ID$PDE2:Prohibited.act2),sub_n)
-
-#random interaction slopes for novel variable estimated w. pilot:
-#sampled slopes for agent & create new variable w. sampled PDEXPBH slope 
-#w.PDE
-sample_agent <- sample(sub_agent_slope, size = sub_n)
-sample_PDExPBH <- sub_PDExPBH_slope
-#w.PBH
-sample_PDExPBH2 <- sample(sub_PDExPBH_slope, size = sub_n)
-sample_agent2 <- sample(sub_agent_slope, size = sub_n)
-
-#Generate random sampled slopes for two-way interactions w. agent:
-sub_PDExagent_slope <- (sample_PDExPBH + sample_agent) / 2
-sub_PBHxagent_slope <- (sample_PDExPBH2 + sample_agent2) / 2
-
-#Generate random sampled slopes for three-way interaction:
-sub_PDExPBHxagent_slope <- (sub_PDExPBH_slope + sub_PDExagent_slope + sub_PBHxagent_slope) / 3
+### sd  
+sub_sd <- subj_ranefsd["(Intercept)"]
+sub_PDE_sd <- subj_ranefsd["PDE2"]
+sub_PBH_sd <- subj_ranefsd["Prohibited.act2"]
+sub_agent_sd <- mean(sub_PDE_sd, sub_PBH_sd)
 
 
-####STIMULI####
-#includes replace=TRUE as novel data stim_n > pilot stim_n
+#ITEM RANDOM EFFECTS#
+#### extract parameter estimates from pilot data ####
+item_ranefsd <- round(attr(VarCorr(MG)$Dilemma, "stddev"),4)
+item_ranefcorrPilot_w.Int <- round(attr(VarCorr(MG)$Dilemma, "corr"), 1)
 
-###intercepts###
-stim_i <- sample((randomeffects$Dilemma$`(Intercept)`),(dilemma_n),replace=TRUE)
-print(stim_i)
+### correlations
+## add in new variable & remove interaction for simplicity 
+#remove interaction 
+item_ranefcorrPilot <- item_ranefcorrPilot_w.Int[-4,-4]
 
-###slopes###
-#slopes for random effects (PDE & PBH) from pilot data output:
-stim_PDE_slope <- sample((randomeffects$Dilemma$PDE2),(dilemma_n),replace=TRUE)
-print(stim_PDE_slope)
-stim_PBH_slope <- sample((randomeffects$Dilemma$Prohibited.act2),(dilemma_n),replace=TRUE)
-print(stim_PBH_slope)
+#add column for agent 
+agentColi <- c(0.6,-0.6,0.3)
+item_ranefcorr <- cbind(item_ranefcorrPilot, agent = agentColi)
 
-#random slopes for novel variable estimated w. pilot:
-stim_agent_slope <- sample(((stim_PBH_slope + stim_PDE_slope) / 2),(dilemma_n),replace=TRUE)
-print(stim_agent_slope)
+#add row for agent 
+agentRowi <- c(0.6,-0.6,0.3,1)
+item_ranefcorr <- rbind(item_ranefcorr, agent = agentRowi)
 
+### sd  
+stim_sd <- item_ranefsd["(Intercept)"]
+stim_PDE_sd <- item_ranefsd["PDE2"]
+stim_PBH_sd <- item_ranefsd["Prohibited.act2"]
+stim_agent_sd <- mean(item_PDE_sd, item_PBH_sd)
 
-##interaction slopes##
-#interaction slopes for random effects (PDE & PBH) from pilot data output:
-stim_PDExPBH_slope <- sample((randomeffects$Dilemma$`PDE2:Prohibited.act2`),dilemma_n, replace=TRUE)
-print(stim_PDExPBH_slope)
+#stim N based on parameters (PDE,PBH) for ONE agent
+stimN_noNo = 30
+stimN_noYes = 62
+stimN_yesNo = 20
+stimN_yesYes = 24
 
-#random interaction slopes for novel variable estimated w. pilot:
-#sampled slopes for agent & create new variable w. sampled PDEXPBH slope 
-#w.PDE
-sampleS_agent <- sample(stim_agent_slope, size = dilemma_n, replace = TRUE)
-sampleS_PDExPBH <- stim_PDExPBH_slope
-#w.PBH
-sampleS_PDExPBH2 <- sample(stim_PDExPBH_slope, size = dilemma_n, replace = TRUE)
-sampleS_agent2 <- sample(stim_agent_slope, size = dilemma_n, replace = TRUE)
-
-#Generate random sampled slopes for two-way interactions w. agent:
-stim_PDExagent_slope <- (sampleS_PDExPBH + sampleS_agent) / 2
-stim_PBHxagent_slope <- (sampleS_PDExPBH2 + sampleS_agent2) / 2
-
-#Generate random sampled slopes for three-way interaction:
-stim_PDExPBHxagent_slope <- (stim_PDExPBH_slope + stim_PDExagent_slope + stim_PBHxagent_slope) / 3
-
-
-#####TRIALS#####
-####SUBJECTS####
-sub <- tibble(
-  sub_id = 1:sub_n,
-  sub_i = sub_i,
-  sub_PDE_slope = sub_PDE_slope,
-  sub_PBH_slope = sub_PBH_slope,
-  sub_agent_slope = sub_agent_slope,
-  sub_PDExPBH_slope = sub_PDExPBH_slope,
-  sub_PDExagent_slope = sub_PDExagent_slope,
-  sub_PBHxagent_slope = sub_PBHxagent_slope,
-  sub_PDEXPBHxagent_slope = sub_PDExPBHxagent_slope
-  
-)
-print(sub)
-
-
-####STIMULI####
-###estimates for stimuli via cross-over of variable levels### 
-#probability of "yes" DV responses based on each level combo from pilot - assuming no effect of agent
-df$interaction <- interaction(df$PDE, df$Prohibited.act)
-counts <- table(df$interaction, df$Permissible)
-total <- table(df$interaction)
-print(df$interaction)
-print(counts)
-print(total)
-# Calculate proportion of "Yes" responses for each level combo
-noNoProb <- 4552 / 7476
-print(noNoProb)
-yesNoProb <- 4735 / 5340
-print(yesNoProb)
-noYesProb <- 4378 / 14952
-print(noYesProb)
-yesYesProb <- 3887 / 6408
-print(yesYesProb)
-
-#scaling factor (putting estimate exactly as GLMM output will not equal estimate value in novel output as REs are removed, scaled up to compensate)
-#estimate of pilot interaction (as interaction estimate corresponds to YES:YES levels)
-unscaled_yesYesEstimate <- 0.4154014
-sf <- yesYesProb / unscaled_yesYesEstimate
-print(sf)
-yesYesEstimate <- sf
-
-noNoEstimate <- noNoProb * sf
-yesNoEstimate <- yesNoProb * sf
-noYesEstimate <- noYesProb * sf
-
-
-###number of stimuli per level for ONE agent###
-stimN_noNo = 15
-stimN_noYes = 31
-stimN_yesNo = 10
-stimN_yesYes = 12
-
-
-##Create a vector to assign group numbers to each stim_id for each level##
-noNo_group_assignment <- rep(1:stimN_noNo, times = stimN_noNo)
-print(noNo_group_assignment)
-noYes_group_assignment <- rep((stimN_noNo+1):(stimN_noNo+stimN_noYes), times = stimN_noYes)
-print(noYes_group_assignment)
-yesNo_group_assignment <- rep(((stimN_noNo+stimN_noYes)+1):(stimN_noNo+stimN_noYes+stimN_yesNo), times = stimN_yesNo)
-print(yesNo_group_assignment)
-yesYes_group_assignment <- rep(((stimN_noNo+stimN_noYes+stimN_yesNo)+1):(stimN_noNo+stimN_noYes+stimN_yesNo+stimN_yesYes), times = stimN_yesYes)
-print(yesYes_group_assignment)
-
-
-###HUMAN STIMULI###
+#HUMAN#
 #PDE: NO, PBH: NO
 stim_noNoHuman <- tibble(
   stim_id = 1:stimN_noNo,
   PDE_version = "No",
   PBH_version = "No",
   agent_version = "Human",
-  dilemmaID = c(noNo_group_assignment),
-  PDExPBH = noNoEstimate
 )
 print(stim_noNoHuman)
 
@@ -224,8 +115,6 @@ stim_noYesHuman <- tibble(
   PDE_version = "No",
   PBH_version = "Yes",
   agent_version = "Human",
-  dilemmaID = c(noYes_group_assignment),
-  PDExPBH = noYesEstimate
 )
 print(stim_noYesHuman)
 #PDE: YES, PBH: NO
@@ -234,8 +123,6 @@ stim_yesNoHuman <- tibble(
   PDE_version = "Yes",
   PBH_version = "No",
   agent_version = "Human",
-  dilemmaID = yesNo_group_assignment,
-  PDExPBH = yesNoEstimate
 )
 print(stim_yesNoHuman)
 #PDE: YES, PBH: YES
@@ -244,20 +131,15 @@ stim_yesYesHuman <- tibble(
   PDE_version = "Yes",
   PBH_version = "Yes",
   agent_version = "Human",
-  dilemmaID = yesYes_group_assignment,
-  PDExPBH = yesYesEstimate
 )
 print(stim_yesYesHuman)
-
-###AI STIMULI###
+#AI#
 #PDE: NO, PBH: NO
 stim_noNoAI <- tibble(
   stim_id = 1:stimN_noNo,
   PDE_version = "No",
   PBH_version = "No",
   agent_version = "AI",
-  dilemmaID = c(noNo_group_assignment),
-  PDExPBH = noNoEstimate
 )
 print(stim_noNoAI)
 #PDE: NO, PBH: YES
@@ -266,8 +148,6 @@ stim_noYesAI <- tibble(
   PDE_version = "No",
   PBH_version = "Yes",
   agent_version = "AI",
-  dilemmaID = c(noYes_group_assignment),
-  PDExPBH = noYesEstimate
 )
 print(stim_noYesAI)
 #PDE: YES, PBH: NO
@@ -276,8 +156,6 @@ stim_yesNoAI <- tibble(
   PDE_version = "Yes",
   PBH_version = "No",
   agent_version = "AI",
-  dilemmaID = yesNo_group_assignment,
-  PDExPBH = yesNoEstimate
 )
 print(stim_yesNoAI)
 #PDE: YES, PBH: YES
@@ -286,129 +164,116 @@ stim_yesYesAI <- tibble(
   PDE_version = "Yes",
   PBH_version = "Yes",
   agent_version = "AI",
-  dilemmaID = yesYes_group_assignment,
-  PDExPBH = yesYesEstimate
 )
 print(stim_yesYesAI)
 
-###bind human + AI stimuli###
-stim <- bind_rows(stim_noNoHuman,stim_noYesHuman,stim_yesNoHuman,stim_yesYesHuman,stim_noNoAI,stim_noYesAI,stim_yesNoAI,stim_yesYesAI)
 
-###create dilemma random effects###
-dilemmaRE <- tibble(
-  dilemmaID = 1:dilemma_n,
-  stim_i = stim_i,
-  stim_PDE_slope = stim_PDE_slope,
-  stim_PBH_slope = stim_PBH_slope,
-  stim_agent_slope = stim_agent_slope,
-  stim_PDExPBH_slope = stim_PDExPBH_slope,
-  stim_PDExagent_slope = stim_PDExagent_slope,
-  stim_PBHxagent_slope = stim_PBHxagent_slope,
-  stim_PDEXPBHxagent_slope = stim_PDExPBHxagent_slope
-  ) 
-print(dilemmaRE)
+##GENERATE FIXED EFFECTS##
+#### extract parameter estimates from pilot data ####
+betaPilot_w.Int <- round(summary(MG)$coefficients[,1],4)
+sigma_e <- round(attr(VarCorr(MG), "sc"), 2)
 
-##add dilemma ID to dilemmaRE data frame##
-dilemmaRE <- dilemmaRE %>%
-  mutate(dilemmaID= 1:nrow(dilemmaRE))
-print(dilemmaRE)
+### add in new variable & remove interaction for simplicity 
+#remove interaction 
+betaPilot <- betaPilot_w.Int[names(betaPilot_w.Int) != "PDE2:Prohibited.act2"]
 
-##add dilemmaRE to stim using dilemmaID as mutual column##
-stim <- stim %>%
-  left_join(dilemmaRE, by = "dilemmaID")
-print(stim)
+#add agent with a small effect size
+beta <- c(betaPilot, "agent" = 1)
 
-#####CREATE TRIALS FOR EACH PARTICIPANT#####
-###create data frame###
-##data frame for each participant##
-participant_data <- lapply(1:sub_n, function(i) {
-  sub_data <- stim
-  sub_data$sub_id <- i  # Add the participant's ID number
-  return(sub_data)
-})
-
-##bind all the participant data frames together##
-allData <- bind_rows(participant_data)
-
-###add random effects to data frame###
-all_data <- allData %>%
-  left_join(sub, by = "sub_id") # includes the intercept, slope, and condition for each subject
-print(all_data)
-
-#####FIXED EFFECTS#####
-###fixed effects based on pilot data for PDE & PBH### 
-#PDE
-PDE_yes = 2.1917278 * sf
-#PBH (is -2.0254895 but add minus to iterative code)
-PBH_yes = 2.0254895 * sf
-###agent set to small effect (log(1.5)))###
-agent_yes = 0.42 * sf
-
-###interactions###
-##from pilot##
-PDExPBH = 0.4154014 * sf
-##with agent - set to 0##
-PDExagent = 0
-PBHxagent = 0
-PBHXPDExagent = 0
-
-#####ERROR#####
-###extract error from pilot data###
-# Raw residuals
-raw_residuals <- residuals(MG, type = "response")
-print(raw_residuals)
-error_sd <- sd(raw_residuals)
-print(error_sd)
-
-#####THRESHOLD FOR YES RESPONSES#####
-###find threshold in pilot data###
-##extract predicted probabilities from pilot##
-predicted_probabilities <- predict(MG, type = "response")
-print(predicted_probabilities)
-
-##create ROC curve from pilot data##
-#compute ROC curve
-roc_curve <- roc(df$Permissible, predicted_probabilities)
-
-#plot ROC curve
-plot(roc_curve)
-
-##use ROC curve to determine threshold characterising responses in pilot data##
-# Find the optimal threshold
-optimal_threshold <- coords(roc_curve, "best", ret = "threshold")
-print(optimal_threshold)
-
-
-#####CREATE SAMPLE DATA VIA ITERATIONS OF CODE BELOW FOR EACH ROW IN ALL_DATA#####
-sampleData <- all_data %>%
+## assemble variance-covariance matrix for subjects:
+sub <- faux::rnorm_multi(
+  n = sub_n, 
+  vars = 4, 
+  r = subj_ranefcorr,
+  mu = 0, # means of random intercepts and slopes are always 0
+  sd = c(sub_sd, sub_PDE_sd, sub_PBH_sd, sub_agent_sd),
+  varnames = c("sub_i", "sub_PDE_slope", "sub_PBH_slope", "sub_agent_slope")
+) %>%
   mutate(
-    #effect-code subject condition and stimulus version
-    PDE_version.e = recode(PDE_version, "No" = -PDE_yes, "Yes" = PDE_yes),
-    PBH_version.e = recode(PBH_version, "No" = PBH_yes, "Yes" = -PBH_yes),
-    agent_version.e = recode(agent_version, "AI" = -agent_yes, "Human" = agent_yes),
-    # calculate trial-specific effects by adding overall effects and slopes
-    PDE_eff = PDE_version.e * sub_PDE_slope * stim_PDE_slope,
-    PBH_eff = PBH_version.e * sub_PBH_slope *stim_PBH_slope,
-    agent_eff = agent_version.e * sub_agent_slope *stim_agent_slope,
-    # calculate error term (normally distributed residual with SD set above)
-    err = rnorm(nrow(.), 0, error_sd),
-    # calculate DV from intercepts, effects, and error 
-    dv = (sub_i + stim_i + 
-          PDE_eff +
-            PBH_eff +
-            agent_eff + err),
-    #convert to binary DV using calculated threshold
-    Permissibility = ifelse(dv > optimal_threshold, 1, 0))
+    sub_id = 1:sub_n
+  )
+
+stim <- bind_rows(stim_noNoHuman,stim_noYesHuman,stim_yesNoHuman,stim_yesYesHuman,stim_noNoAI,stim_noYesAI,stim_yesNoAI,stim_yesYesAI
+) %>% 
+  mutate(faux::rnorm_multi(
+    n = stim_n, 
+    vars = 4, 
+    r = item_ranefcorr, 
+    mu = 0, # means of random intercepts and slopes are always 0
+    sd = c(stim_sd, stim_PDE_sd, stim_PBH_sd, stim_agent_sd),
+    varnames = c("stim_i", "stim_PDE_slope", "stim_PBH_slope", "stim_agent_slope")
+  )
+  )
+## add numeric contrast codes 
+stim <- stim %>%
+  mutate(
+    PDE_version_numeric = ifelse(PDE_version == "Yes", 1, 0),
+    PBH_version_numeric = ifelse(PBH_version == "Yes", 1, 0),
+    agent_version_numeric = ifelse(agent_version == "Human", 1, 0),
+    stimID = 1:nrow
+  )
+
+stim <- bind_rows(stim_noNoHuman,stim_noYesHuman,stim_yesNoHuman,stim_yesYesHuman,stim_noNoAI,stim_noYesAI,stim_yesNoAI,stim_yesYesAI
+) %>% 
+  mutate(faux::rnorm_multi(
+    n = stim_n, 
+    vars = 4, 
+    r = item_ranefcorr, 
+    mu = 0, # means of random intercepts and slopes are always 0
+    sd = c(stim_sd, stim_PDE_sd, stim_PBH_sd, stim_agent_sd),
+    varnames = c("stim_i", "stim_PDE_slope", "stim_PBH_slope", "stim_agent_slope")
+  )
+  )
+## add numeric contrast codes 
+stim <- stim %>%
+  mutate(
+    PDE2 = ifelse(PDE_version == "Yes", 1, 0),
+    PBH2 = ifelse(PBH_version == "Yes", 1, 0),
+    agentAI = ifelse(agent_version == "AI", 1, 0),
+    stimID = 1:nrow(stim)
+  )
+
+##merge stimulus and subject random effects
+
+subWstim <- data.frame()
+
+for (row in 1:nrow(sub)) {
+
+        # Create a copy of `stim` and add identifiers for row and column
+        stim_copy <- stim %>%
+          mutate(
+            sub_id = row,   # Adding row index
+          )
+        
+        # Append the current `stim_copy` data frame to `subWstim`
+        subWstim <- rbind(subWstim, stim_copy)
+}
+
+subXstim <- left_join(subWstim,sub, by = "sub_id")
+
+subXstim$PDE_version = recode(subXstim$PDE_version, "No" = 0, "Yes" = 1)
+subXstim$PBH_version = recode(subXstim$PBH_version, "No" = 0, "Yes" = 1)
+subXstim$agent_version = recode(subXstim$agent_version, "Human" = 0, "AI" = 1)
   
-###check worked as expected###
-#visual check
-print(sampleData)
-view(sampleData)
+## calculate the linear predictor (logit)
+simulatedData <- subXstim %>%
+  mutate(
+    logit = beta[['PDE2']] *PDE_version +
+      beta[['Prohibited.act2']] *PBH_version + 
+      beta[['agent']] *agent_version + 
+      sub_i + 
+      sub_PDE_slope *PDE_version +
+      sub_PBH_slope *PBH_version +
+      sub_agent_slope *agent_version +
+      stim_i + 
+      stim_PDE_slope *PDE_version +
+      stim_PBH_slope *PBH_version +
+      stim_agent_slope *agent_version
+  )
 
-
-#test analysis w.o RE as faster, just to check general direction
-sampleTest <- glm(Permissibility~PDE_version*PBH_version*agent_version,family=binomial,data=sampleData)
-summary(sampleTest)
+simulatedData$prob <- plogis(simulatedData$logit)
+simulatedData$Permissibility <- rbinom(nrow(simulatedData), size=1, prob= simulatedData$prob)
+view(simulatedData)
 
 #####OPEN SAMPLE SIZE CALCULATION CODE#####
 ```
